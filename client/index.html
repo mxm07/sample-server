@@ -19,7 +19,32 @@
       <main class="main">
         <section class="panel explorer">
           <div class="panel-header">
-            <button class="button ghost" id="up-button" type="button">Up</button>
+            <div class="panel-actions">
+              <button class="button ghost" id="up-button" type="button">Up</button>
+              <div class="search">
+                <span class="search-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M10.5 3a7.5 7.5 0 1 1 0 15 7.5 7.5 0 0 1 0-15zm0 2a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11zm7.03 10.53 3.22 3.22a1 1 0 1 1-1.42 1.42l-3.22-3.22a1 1 0 0 1 1.42-1.42z"
+                    />
+                  </svg>
+                </span>
+                <input
+                  id="search-input"
+                  type="search"
+                  placeholder="Search samples"
+                  aria-label="Search samples"
+                  autocomplete="off"
+                />
+                <button class="search-clear" id="search-clear" type="button" aria-label="Clear search">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M7.05 5.64a1 1 0 0 1 1.41 0L12 9.17l3.54-3.53a1 1 0 1 1 1.42 1.41L13.41 10.6l3.54 3.54a1 1 0 0 1-1.42 1.41L12 12.01l-3.54 3.54a1 1 0 0 1-1.41-1.41l3.53-3.54-3.53-3.54a1 1 0 0 1 0-1.41z"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
             <div class="panel-meta">
               <span class="selection-count" id="selected-count">0 selected</span>
               <div class="path" id="current-path">/</div>

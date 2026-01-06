@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     library_path: Path = Field(..., description="Root path of the sample library")
     audio_extensions: set[str] = Field(default_factory=lambda: set(DEFAULT_AUDIO_EXTENSIONS))
     cors_origins: list[str] = Field(default_factory=lambda: ["*"])
+    search_cache_seconds: int = Field(default=60, ge=0)
+    search_max_results: int = Field(default=120, ge=1)
 
     @field_validator("library_path", mode="before")
     @classmethod

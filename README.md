@@ -40,11 +40,14 @@ http://<server-wireguard-ip>:8000/
 - `SAMPLE_SERVER_LIBRARY_PATH` (required): Path to the sample library root folder on the server.
 - `SAMPLE_SERVER_AUDIO_EXTENSIONS` (optional): Comma-separated list of audio extensions, e.g. `.wav,.aiff,.flac`.
 - `SAMPLE_SERVER_CORS_ORIGINS` (optional): Comma-separated list of allowed origins, or `*`.
+- `SAMPLE_SERVER_SEARCH_CACHE_SECONDS` (optional): Seconds to cache the search index (set `0` to rebuild every search).
+- `SAMPLE_SERVER_SEARCH_MAX_RESULTS` (optional): Maximum number of search results returned per query.
 
 ## API
 
 - `GET /api/health`
 - `GET /api/list?path=<relative>`
+- `GET /api/search?query=<text>&limit=<n>`
 - `GET /api/file?path=<relative>` (stream/playback)
 - `GET /api/download?path=<relative>`
 

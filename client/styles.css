@@ -89,6 +89,7 @@ button,
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
   margin-bottom: 12px;
   position: sticky;
   top: 0;
@@ -97,6 +98,74 @@ button,
   padding: 12px 20px;
   margin: -20px -20px 12px;
   border-bottom: 1px solid var(--border);
+}
+
+.panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #fff7e8;
+}
+
+.search-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+}
+
+.search-icon svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.search input {
+  border: none;
+  background: transparent;
+  font: inherit;
+  color: var(--ink);
+  min-width: 180px;
+}
+
+.search input:focus {
+  outline: none;
+}
+
+.search-clear {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.search-clear svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.search-clear:hover {
+  color: var(--accent-strong);
+}
+
+.search-clear:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .panel-meta {
@@ -120,6 +189,16 @@ button,
   gap: 6px;
   justify-content: flex-end;
   align-items: center;
+}
+
+.search-label {
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.search-count {
+  color: var(--muted);
+  font-size: 0.85rem;
 }
 
 .path button {
@@ -412,5 +491,9 @@ button,
 
   .now-meta {
     font-size: 0.75rem;
+  }
+
+  .search input {
+    min-width: 140px;
   }
 }

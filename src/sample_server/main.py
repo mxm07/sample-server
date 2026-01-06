@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import mimetypes
+import re
 import tempfile
+import time
 import zipfile
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -33,6 +36,9 @@ def ensure_library_root() -> Path:
 LIBRARY_ROOT = ensure_library_root()
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 CLIENT_DIR = PROJECT_ROOT / "client"
+SEARCH_INDEX: dict[str, Any] = {"entries": [], "built_at": 0.0}
+
+SEARCH_BOUNDARIES = set(" /_-.")
 
 
 app = FastAPI(title="Sample Server", version="0.1.0")
@@ -87,11 +93,11 @@ def directory_audio_size(path: Path) -> int:
     return total
 
 
-def entry_info(entry: Path) -> dict[str, Any]:
+def entry_info(entry: Path, include_dir_size: bool = True) -> dict[str, Any]:
     stat = entry.stat()
     ext = entry.suffix.lower()
     if entry.is_dir():
-        size = directory_audio_size(entry)
+        size = directory_audio_size(entry) if include_dir_size else None
     else:
         size = stat.st_size
     return {
@@ -102,6 +108,136 @@ def entry_info(entry: Path) -> dict[str, Any]:
         "modified": int(stat.st_mtime),
         "is_audio": entry.is_file() and ext in settings.audio_extensions,
     }
+
+
+@dataclass(frozen=True)
+class SearchEntry:
+    entry: dict[str, Any]
+    name: str
+    stem: str
+    path: str
+    depth: int
+
+
+def normalize_query(raw: str) -> str:
+    return " ".join(raw.strip().lower().split())
+
+
+def split_query(query: str) -> list[str]:
+    return [item for item in re.split(r"[\s/]+", query) if item]
+
+
+def fuzzy_score(needle: str, haystack: str) -> int:
+    if not needle:
+        return 0
+    needle = needle.lower()
+    haystack = haystack.lower()
+    positions = []
+    start = 0
+    for char in needle:
+        pos = haystack.find(char, start)
+        if pos == -1:
+            return -1
+        positions.append(pos)
+        start = pos + 1
+    score = 0
+    last_pos = -1
+    for pos in positions:
+        score += 1
+        if pos == 0 or haystack[pos - 1] in SEARCH_BOUNDARIES:
+            score += 3
+        if last_pos >= 0 and pos == last_pos + 1:
+            score += 4
+        last_pos = pos
+    if needle in haystack:
+        score += len(needle) * 2 + 6
+    score += max(0, 6 - positions[0])
+    return score
+
+
+def token_score(token: str, entry: SearchEntry) -> int:
+    best = -1
+    for text, base in ((entry.stem, 90), (entry.name, 70), (entry.path, 30)):
+        score = fuzzy_score(token, text)
+        if score < 0:
+            continue
+        if text.startswith(token):
+            score += 12
+        if token == text:
+            score += 25
+        if token in text:
+            score += 6
+        score += base
+        best = max(best, score)
+    return best
+
+
+def entry_score(query: str, tokens: list[str], entry: SearchEntry) -> float | None:
+    total = 0.0
+    for token in tokens:
+        score = token_score(token, entry)
+        if score < 0:
+            return None
+        total += score
+    if query in entry.name:
+        total += 40
+    elif query in entry.path:
+        total += 15
+    if entry.entry.get("is_audio"):
+        total += 2
+    total -= entry.depth * 1.5
+    total -= len(entry.path) * 0.05
+    return total
+
+
+def build_search_index() -> list[SearchEntry]:
+    entries: list[SearchEntry] = []
+    for path in LIBRARY_ROOT.rglob("*"):
+        try:
+            if path.is_dir():
+                info = entry_info(path, include_dir_size=False)
+            elif path.suffix.lower() in settings.audio_extensions:
+                info = entry_info(path, include_dir_size=False)
+            else:
+                continue
+        except OSError:
+            continue
+        rel_path = info["path"]
+        entries.append(
+            SearchEntry(
+                entry=info,
+                name=info["name"].lower(),
+                stem=path.stem.lower(),
+                path=rel_path.lower(),
+                depth=rel_path.count("/"),
+            )
+        )
+    return entries
+
+
+def get_search_index() -> list[SearchEntry]:
+    cache_seconds = max(settings.search_cache_seconds, 0)
+    if cache_seconds <= 0:
+        return build_search_index()
+    now = time.monotonic()
+    if not SEARCH_INDEX["entries"] or now - SEARCH_INDEX["built_at"] > cache_seconds:
+        SEARCH_INDEX["entries"] = build_search_index()
+        SEARCH_INDEX["built_at"] = now
+    return SEARCH_INDEX["entries"]
+
+
+def search_library(query: str, limit: int) -> list[dict[str, Any]]:
+    tokens = split_query(query)
+    if not tokens:
+        return []
+    scored: list[tuple[float, SearchEntry]] = []
+    for entry in get_search_index():
+        score = entry_score(query, tokens, entry)
+        if score is None:
+            continue
+        scored.append((score, entry))
+    scored.sort(key=lambda item: (-item[0], len(item[1].path), item[1].entry["name"].lower()))
+    return [item[1].entry for item in scored[:limit]]
 
 
 def build_audio_zip(target: Path) -> Path:
@@ -147,6 +283,19 @@ def list_directory(path: str | None = Query(default=None)) -> dict[str, Any]:
         "path": to_relative_posix(target) if target != LIBRARY_ROOT else "",
         "entries": entries,
     }
+
+
+@app.get("/api/search")
+def search_samples(
+    query: str = Query(..., min_length=1),
+    limit: int | None = Query(default=None, ge=1, le=500),
+) -> dict[str, Any]:
+    normalized = normalize_query(query)
+    if not normalized:
+        raise HTTPException(status_code=400, detail="Query cannot be empty")
+    max_results = limit or settings.search_max_results
+    results = search_library(normalized, max_results)
+    return {"query": normalized, "count": len(results), "results": results}
 
 
 @app.get("/api/file")

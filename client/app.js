@@ -4,6 +4,8 @@ const statusEl = document.getElementById("status");
 const pathEl = document.getElementById("current-path");
 const listEl = document.getElementById("entry-list");
 const upButton = document.getElementById("up-button");
+const searchInput = document.getElementById("search-input");
+const searchClear = document.getElementById("search-clear");
 const selectedCount = document.getElementById("selected-count");
 const nowTitle = document.getElementById("now-title");
 const nowMeta = document.getElementById("now-meta");
@@ -21,6 +23,11 @@ let activeIndex = -1;
 let lastSelectedIndex = -1;
 let activeEntry = null;
 let autoplayEnabled = true;
+let searchActive = false;
+let lastBrowsePath = "";
+let searchTimer = null;
+let searchRequestId = 0;
+const searchDelay = 250;
 const selectedPaths = new Set();
 const durationCache = new Map();
 const waveformCache = new Map();
@@ -124,6 +131,18 @@ function renderBreadcrumbs(path) {
     button.addEventListener("click", () => loadDirectory(prefix));
     pathEl.appendChild(button);
   });
+}
+
+function renderSearchMeta(query, count) {
+  pathEl.innerHTML = "";
+  const label = document.createElement("span");
+  label.className = "search-label";
+  label.textContent = `Search: "${query}"`;
+  pathEl.appendChild(label);
+  const tally = document.createElement("span");
+  tally.className = "search-count";
+  tally.textContent = `${count} results`;
+  pathEl.appendChild(tally);
 }
 
 function buildUrl(path, query) {
@@ -372,7 +391,11 @@ function setActiveIndex(index, { select = true, autoplay = false } = {}) {
 
 function handleEntryClick(entry, index, event) {
   if (entry.is_dir) {
-    loadDirectory(entry.path);
+    if (searchActive) {
+      exitSearch({ targetPath: entry.path });
+    } else {
+      loadDirectory(entry.path);
+    }
     return;
   }
 
@@ -391,7 +414,7 @@ function handleEntryClick(entry, index, event) {
   refreshSelectionUI();
 }
 
-function renderEntries(entries) {
+function renderEntries(entries, { emptyMessage = "Empty folder" } = {}) {
   listEl.innerHTML = "";
   entryRows = [];
   metaLookup = new Map();
@@ -416,7 +439,7 @@ function renderEntries(entries) {
   if (!entries.length) {
     const empty = document.createElement("div");
     empty.className = "entry";
-    empty.textContent = "Empty folder";
+    empty.textContent = emptyMessage;
     listEl.appendChild(empty);
     return;
   }
@@ -498,8 +521,73 @@ function renderEntries(entries) {
   refreshSelectionUI();
 }
 
+function setSearchControls(value) {
+  searchClear.disabled = !value;
+}
+
+function showListMessage(message) {
+  listEl.innerHTML = "";
+  entryRows = [];
+  const placeholder = document.createElement("div");
+  placeholder.className = "entry";
+  placeholder.textContent = message;
+  listEl.appendChild(placeholder);
+}
+
+async function runSearch(query) {
+  const trimmed = query.trim();
+  if (!trimmed) return;
+  searchTimer = null;
+  const requestId = (searchRequestId += 1);
+  if (!searchActive) {
+    lastBrowsePath = currentPath;
+    searchActive = true;
+  }
+  setSearchControls(trimmed);
+  upButton.disabled = true;
+  showListMessage("Searching...");
+  try {
+    const data = await fetchJson("/api/search", { query: trimmed, limit: 120 });
+    if (requestId !== searchRequestId) {
+      return;
+    }
+    currentEntries = (data.results || []).filter(
+      (entry) => entry.is_dir || entry.is_audio
+    );
+    entryLookup = new Map(currentEntries.map((entry) => [entry.path, entry]));
+    activeIndex = -1;
+    lastSelectedIndex = -1;
+    clearSelection();
+    renderSearchMeta(trimmed, data.count ?? currentEntries.length);
+    updatePreview(null);
+    renderEntries(currentEntries, { emptyMessage: "No matches" });
+  } catch (err) {
+    setStatus(err.message, false);
+  }
+}
+
+function exitSearch({ targetPath = null } = {}) {
+  if (!searchActive && !searchInput.value) {
+    return;
+  }
+  searchRequestId += 1;
+  if (searchTimer) {
+    clearTimeout(searchTimer);
+    searchTimer = null;
+  }
+  searchActive = false;
+  searchInput.value = "";
+  setSearchControls("");
+  if (targetPath !== null) {
+    loadDirectory(targetPath);
+  }
+}
+
 async function loadDirectory(path) {
   try {
+    if (!searchActive) {
+      lastBrowsePath = path;
+    }
     const data = await fetchJson("/api/list", { path });
     currentPath = data.path || "";
     currentEntries = (data.entries || []).filter(
@@ -559,6 +647,40 @@ playButton.addEventListener("click", () => {
 
 bulkDownloadButton.addEventListener("click", () => {
   downloadSelected();
+});
+
+setSearchControls(searchInput.value);
+searchInput.addEventListener("input", () => {
+  const value = searchInput.value;
+  setSearchControls(value);
+  if (searchTimer) {
+    clearTimeout(searchTimer);
+  }
+  if (!value.trim()) {
+    if (searchActive) {
+      exitSearch({ targetPath: lastBrowsePath || "" });
+    }
+    return;
+  }
+  searchTimer = setTimeout(() => runSearch(value), searchDelay);
+});
+
+searchInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    if (searchTimer) {
+      clearTimeout(searchTimer);
+    }
+    runSearch(searchInput.value);
+  }
+  if (event.key === "Escape") {
+    event.preventDefault();
+    exitSearch({ targetPath: lastBrowsePath || "" });
+  }
+});
+
+searchClear.addEventListener("click", () => {
+  exitSearch({ targetPath: lastBrowsePath || "" });
 });
 
 document.addEventListener("keydown", (event) => {
