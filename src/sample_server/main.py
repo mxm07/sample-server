@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import mimetypes
+import tempfile
+import zipfile
 from functools import lru_cache
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -8,6 +10,7 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
+from starlette.background import BackgroundTask
 
 from sample_server.config import Settings
 
@@ -70,17 +73,58 @@ def to_relative_posix(path: Path) -> str:
     return relative.as_posix()
 
 
+def directory_audio_size(path: Path) -> int:
+    total = 0
+    for child in path.rglob("*"):
+        try:
+            if not child.is_file():
+                continue
+            if child.suffix.lower() not in settings.audio_extensions:
+                continue
+            total += child.stat().st_size
+        except OSError:
+            continue
+    return total
+
+
 def entry_info(entry: Path) -> dict[str, Any]:
     stat = entry.stat()
     ext = entry.suffix.lower()
+    if entry.is_dir():
+        size = directory_audio_size(entry)
+    else:
+        size = stat.st_size
     return {
         "name": entry.name,
         "path": to_relative_posix(entry),
         "is_dir": entry.is_dir(),
-        "size": stat.st_size if entry.is_file() else None,
+        "size": size,
         "modified": int(stat.st_mtime),
         "is_audio": entry.is_file() and ext in settings.audio_extensions,
     }
+
+
+def build_audio_zip(target: Path) -> Path:
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
+    temp_path = Path(temp_file.name)
+    temp_file.close()
+
+    file_count = 0
+    with zipfile.ZipFile(temp_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for path in target.rglob("*"):
+            if not path.is_file():
+                continue
+            if path.suffix.lower() not in settings.audio_extensions:
+                continue
+            archive_name = path.relative_to(target).as_posix()
+            archive.write(path, archive_name)
+            file_count += 1
+
+    if file_count == 0:
+        temp_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=404, detail="No audio files found in folder")
+
+    return temp_path
 
 
 @app.get("/api/list")
@@ -118,7 +162,20 @@ def stream_file(path: str = Query(...)) -> FileResponse:
 @app.get("/api/download")
 def download_file(path: str = Query(...)) -> FileResponse:
     target = resolve_safe_path(path)
-    if not target.exists() or not target.is_file():
+    if not target.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    if target.is_dir():
+        archive_path = build_audio_zip(target)
+        filename = f"{target.name or 'samples'}.zip"
+        return FileResponse(
+            archive_path,
+            media_type="application/zip",
+            filename=filename,
+            background=BackgroundTask(lambda: archive_path.unlink(missing_ok=True)),
+        )
+
+    if not target.is_file():
         raise HTTPException(status_code=404, detail="File not found")
 
     media_type, _ = mimetypes.guess_type(str(target))

@@ -69,7 +69,7 @@ button,
 
 .main {
   display: grid;
-  grid-template-columns: 1.2fr 1fr;
+  grid-template-columns: 1fr;
   gap: 20px;
 }
 
@@ -90,12 +90,54 @@ button,
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--panel);
+  padding: 12px 20px;
+  margin: -20px -20px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.panel-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+
+.selection-count {
+  font-size: 0.85rem;
+  color: var(--accent-strong);
 }
 
 .path {
   font-size: 0.95rem;
   color: var(--muted);
   word-break: break-all;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.path button {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.path button:hover {
+  color: var(--accent-strong);
+  text-decoration: underline;
+}
+
+.path-separator {
+  color: var(--muted);
 }
 
 .list {
@@ -114,6 +156,7 @@ button,
   border-radius: 12px;
   border: 1px solid transparent;
   transition: background 0.2s ease, border 0.2s ease;
+  cursor: pointer;
 }
 
 .entry:hover {
@@ -142,9 +185,87 @@ button,
   flex: 1;
 }
 
+.entry-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.entry-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: var(--accent-strong);
+  flex-shrink: 0;
+}
+
+.entry-icon svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .entry .entry-meta {
   color: var(--muted);
   font-size: 0.85rem;
+}
+
+.entry-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.entry-actions.is-audio {
+  display: grid;
+  align-items: center;
+  grid-template-columns: 180px 84px 32px;
+  gap: 6px;
+}
+
+.entry-actions.is-audio .entry-meta {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.waveform {
+  border: 1px solid var(--border);
+  background: #fff7ec;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #fdf8f0;
+  color: var(--accent-strong);
+  text-decoration: none;
+  transition: background 0.2s ease, border 0.2s ease;
+}
+
+.icon-button:hover {
+  background: #f2e8d6;
+  border-color: var(--accent);
+}
+
+.icon-button svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
 }
 
 .button {
@@ -184,37 +305,11 @@ button,
   pointer-events: none;
 }
 
-.preview h2 {
-  margin: 0;
-  font-size: 1.4rem;
-}
-
-.meta {
-  margin: 4px 0 0;
-  color: var(--muted);
-}
-
-.player {
-  margin-top: 22px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-audio {
-  width: 100%;
-}
-
 .actions {
   display: flex;
   gap: 12px;
   align-items: center;
   flex-wrap: wrap;
-}
-
-.selection-info {
-  color: var(--muted);
-  font-size: 0.85rem;
 }
 
 .toggle {
@@ -229,11 +324,43 @@ audio {
   accent-color: var(--accent);
 }
 
-.footer {
+.player-bar {
+  position: sticky;
+  bottom: 0;
   display: flex;
+  align-items: center;
   justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: #fffaf3;
+  box-shadow: 0 16px 30px var(--shadow);
+  width: 90%;
+  margin: 0 auto;
+  bottom: 24px;
+}
+
+.now-playing {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 200px;
+}
+
+.now-title {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.now-meta {
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+}
+
+.player-bar audio {
+  flex: 1 1 320px;
+  min-width: 240px;
 }
 
 @media (max-width: 900px) {
@@ -243,5 +370,47 @@ audio {
 
   .panel {
     min-height: auto;
+  }
+
+  .player-bar {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "now actions"
+      "audio audio";
+    align-items: center;
+    padding: 12px 14px;
+    gap: 10px;
+  }
+
+  .player-bar .now-playing {
+    grid-area: now;
+  }
+
+  .player-bar .actions {
+    grid-area: actions;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .player-bar audio {
+    grid-area: audio;
+  }
+
+  .player-bar .button {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+  }
+
+  .player-bar .toggle {
+    font-size: 0.75rem;
+  }
+
+  .now-title {
+    font-size: 0.95rem;
+  }
+
+  .now-meta {
+    font-size: 0.75rem;
   }
 }
