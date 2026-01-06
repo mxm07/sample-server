@@ -121,6 +121,16 @@ button,
   border-color: var(--border);
 }
 
+.entry.active {
+  background: #f2f7f3;
+  border-color: var(--accent);
+}
+
+.entry.selected {
+  background: #e7efe9;
+  border-color: var(--accent);
+}
+
 .entry button {
   background: none;
   border: none;
@@ -129,6 +139,7 @@ button,
   cursor: pointer;
   font: inherit;
   color: inherit;
+  flex: 1;
 }
 
 .entry .entry-meta {
@@ -168,6 +179,11 @@ button,
   background: #f5ead8;
 }
 
+.button[aria-disabled="true"] {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
 .preview h2 {
   margin: 0;
   font-size: 1.4rem;
@@ -193,6 +209,24 @@ audio {
   display: flex;
   gap: 12px;
   align-items: center;
+  flex-wrap: wrap;
+}
+
+.selection-info {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.toggle input {
+  accent-color: var(--accent);
 }
 
 .footer {

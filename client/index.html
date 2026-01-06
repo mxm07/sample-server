@@ -31,13 +31,21 @@
               <h2 id="preview-title">Select a file</h2>
               <p class="meta" id="preview-meta">No file selected.</p>
             </div>
+            <label class="toggle">
+              <input type="checkbox" id="autoplay-toggle" />
+              <span>Auto-play</span>
+            </label>
           </div>
           <div class="player">
             <audio id="audio-player" controls preload="none"></audio>
             <div class="actions">
               <button class="button" id="play-button" type="button" disabled>Play</button>
               <a class="button ghost" id="download-button" href="#" download>Download</a>
+              <button class="button ghost" id="bulk-download-button" type="button" disabled>
+                Download selected
+              </button>
             </div>
+            <div class="selection-info" id="selection-info">No files selected.</div>
           </div>
         </section>
       </main>
